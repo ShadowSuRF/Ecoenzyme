@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecoenzyme Fermentation Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            margin: auto;
+            padding: 10px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+        .left, .center, .right {
+            flex: 1;
+            padding: 20px;
+        }
+        .input-section label {
+            display: block;
+            margin: 10px 0;
+        }
+        #colorBox {
+            width: 50px;
+            height: 50px;
+            margin: auto;
+            border-radius: 5px;
+            border: 2px solid black;
+        }
+        .info-box {
+            text-align: left;
+            background: #eee;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Ecoenzyme Fermentation Simulation</h1>
+
+    <div class="container">
+        <div class="left">
+            <h3>Input Parameters</h3>
+            <div class="input-section">
+                <label>Orange Peels: <input type="number" id="peels" value="300"> g</label>
+                <label>Brown Sugar: <input type="number" id="sugar" value="100"> g</label>
+                <label>Water: <input type="number" id="water" value="1000"> ml</label>
+            </div>
+            <h3>Environmental Factor</h3>
+            <div class="input-section">
+                <label>Room Temperature: <input type="number" id="temperature" value="25"> °C</label>
+            </div>
+            <button id="simulateButton">Start Simulation</button>
+        </div>
+
+        <div class="center">
+            <h3>pH Change Over 3 Months</h3>
+            <canvas id="pHChart"></canvas>
+            <p id="fermentationStatus">Fermentation is running normally.</p>
+            <div class="fermentation">
+                <p>Fermentation Color:</p>
+                <div id="colorBox"></div>
+            </div>
+        </div>
+
+        <div class="right">
+            <h3>Fermentation Info</h3>
+            <div class="info-box">
+                <p><strong>Current pH:</strong> <span id="currentPH">--</span></p>
+                <p><strong>Gas Production:</strong> <span id="gasProduction">--</span> ml</p>
+                <p><strong>Use Case Info:</strong></p>
+                <p id="useCaseInfo">No simulation yet.</p>
+            </div>
+            <button id="resetButton">Reset Simulation</button>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        let ctx = document.getElementById('pHChart').getContext('2d');
+        let lastColor = "";
+        let months = [0, 1, 2, 3];
+
+        let defaultValues = {
+            peels: 300,
+            sugar: 100,
+            water: 1000,
+            temperature: 25
+        };
+
+        function calculateGasProduction() {
+            let peels = parseFloat(document.getElementById("peels").value);
+            let sugar = parseFloat(document.getElementById("sugar").value);
+            let water = parseFloat(document.getElementById("water").value);
+            let temperature = parseFloat(document.getElementById("temperature").value);
+
+            if (temperature >= 40 || temperature <= 15) return 0;
+
+            let co2FromSugar = sugar * 0.6;
+            let tempFactor = 1 + (temperature - 25) / 10 * 0.2;
+            let co2FromPeels = peels * 0.1;
+            let co2FromWater = water * 0.02;
+
+            let totalGas = co2FromSugar + co2FromPeels + co2FromWater;
+            let finalGas = Math.max(0, Math.floor(totalGas * tempFactor));
+
+            return finalGas;
+        }
+
+        function calculatePH(month) {
+    let temperature = parseFloat(document.getElementById("temperature").value);
+    let peels = parseFloat(document.getElementById("peels").value);
+    let sugar = parseFloat(document.getElementById("sugar").value);
+    let water = parseFloat(document.getElementById("water").value);
+
+    let pH_initial = 6.8;
+    let pH_final = 2.5 + (0.0015 * peels) - (0.003 * sugar) + (0.0005 * water);
+    let k = 0.5 + (temperature - 25) * 0.05;
+
+    if (month === 0) return pH_initial;
+
+    let final_pH = pH_final + (pH_initial - pH_final) * Math.exp(-k * month);
+    return final_pH.toFixed(2);
+}
+
+
+        let colorMap = {
+            orange: "#FFA500",
+            yellow: "#FFFF00",
+            brown: "#A52A2A",
+            darkbrown: "#654321",
+            gray: "#808080"
+        };
+
+        function updateColor(pH, gas) {
+            let colorBox = document.getElementById("colorBox");
+            let newColor = pH >= 5.5 ? "orange" : pH >= 4.5 ? "yellow" : pH >= 3.8 ? "brown" : "darkbrown";
+            if (gas === 0) newColor = "gray";
+
+            if (lastColor !== newColor) {
+                lastColor = newColor;
+                colorBox.style.backgroundColor = colorMap[newColor];
+
+                let fermentationStatus = document.getElementById("fermentationStatus");
+                fermentationStatus.innerText = newColor === "gray" ? "Fermentasi gagal" :
+                    newColor === "orange" ? "Fermentasi kurang baik" :
+                    newColor === "yellow" ? "Fermentasi hampir selesai tapi belum optimal" :
+                    newColor === "brown" ? "Fermentasi sudah matang" :
+                    "Fermentasi sangat matang dan sangat efektif";
+            }
+        }
+
+		let pHChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: months.map(m => `Month ${m}`),
+        datasets: [{
+            label: 'pH Change Over Time',
+            data: months.map(calculatePH),
+            borderColor: 'blue',
+            borderWidth: 2,
+            fill: false
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: { title: { display: true, text: 'Months' } },
+            y: { title: { display: true, text: 'pH' }, min: 3, max: 7, ticks: { stepSize: 0.5 } }
+        }
+    }
+});
+
+		function updateUseCase(pH, gas) {
+    let peels = document.getElementById("peels").value;
+    let sugar = document.getElementById("sugar").value;
+    let water = document.getElementById("water").value;
+    let temperature = document.getElementById("temperature").value;
+
+    let useCaseInfo = document.getElementById("useCaseInfo");
+    useCaseInfo.innerText = `Peels: ${peels}g, Sugar: ${sugar}g, Water: ${water}ml, Temp: ${temperature}°C → pH: ${pH}, Gas: ${gas}ml`;
+}
+
+
+
+        function updateSimulation() {
+    let gas = calculateGasProduction();
+    let finalPH = calculatePH(3);
+
+    document.getElementById("gasProduction").innerText = gas;
+    document.getElementById("currentPH").innerText = finalPH;
+
+    updateColor(finalPH, gas);
+    updateUseCase(finalPH, gas); // Panggil kembali fungsi ini
+
+    pHChart.data.datasets[0].data = months.map(m => calculatePH(m));
+    pHChart.update();
+}
+
+
+        document.getElementById("simulateButton").addEventListener("click", updateSimulation);
+        document.getElementById("resetButton").addEventListener("click", function () {
+            Object.keys(defaultValues).forEach(key => {
+                document.getElementById(key).value = defaultValues[key];
+            });
+            updateSimulation();
+        });
+
+        updateSimulation();
+    });
+    </script>
+
+</body>
+</html>
